@@ -106,3 +106,22 @@ sys_trace(void)
   myproc()->mask = mask;  // 在进程结构体中保存掩码
   return 0;
 }
+
+#include "sysinfo.h"
+uint64
+sys_sysinfo(void)
+{
+  uint64 uaddr;              // 用户态指针
+  if (argaddr(0, &uaddr) < 0)
+    return -1;
+
+  struct sysinfo si;
+  si.freemem = freemem();  
+  si.nproc   = countnproc();      
+
+  struct proc *p = myproc();
+  if (copyout(p->pagetable, uaddr, (char *)&si, sizeof(si)) < 0)
+    return -1;
+
+  return 0;
+}

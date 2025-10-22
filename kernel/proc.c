@@ -597,6 +597,19 @@ kill(int pid)
   return -1;
 }
 
+uint64
+countnproc(void)
+{
+  uint64 count=0;
+  struct proc *p;
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->state!=UNUSED) count++;
+    release(&p->lock);
+  }
+  return count;
+}
+
 // Copy to either a user address, or kernel address,
 // depending on usr_dst.
 // Returns 0 on success, -1 on error.
