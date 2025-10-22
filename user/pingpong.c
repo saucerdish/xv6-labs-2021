@@ -6,12 +6,9 @@ main(int argc, char *argv[])
 {
   int p[2];
   pipe(p);
-//   int p2[2];
-//   pipe(p2);
 
   int pid=fork();
-  if(pid==0){
-    //child
+  if(pid==0){//child
     char buf[2];
     read(p[0],buf,sizeof(buf));
     printf("%d: received ping\n",getpid());
