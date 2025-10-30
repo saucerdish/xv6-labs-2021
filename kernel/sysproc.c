@@ -80,7 +80,30 @@ sys_sleep(void)
 int
 sys_pgaccess(void)
 {
-  // lab pgtbl: your code here.
+  // first argument
+  uint64 addr;
+  if(argaddr(0, &addr) < 0) return -1;
+  // second argument
+  int nums;
+  if(argint(1, &nums) < 0) return -1;
+  // third argument
+  uint64 ua;
+  if(argaddr(2, &ua) < 0) return -1;
+
+  pagetable_t pagetable=myproc()->pagetable;
+  uint64 bitmask=0;// mask not char!!!
+
+  for(int i=0;i<nums;i++){
+    uint64 uaddr=addr+i*PGSIZE;
+    if(uaddr>MAXVA) return -1; // MAX virtual address
+    pte_t *pte=walk(pagetable,uaddr,0);
+    if((*pte & PTE_V) && (*pte & PTE_A)){ // Access and Valid
+      bitmask|=(1<<i);
+      *pte &= ~PTE_A; // clear PTE_A
+    }
+  }
+
+  if(copyout(pagetable,ua,(char*)&bitmask,sizeof(bitmask))<0) return -1;
   return 0;
 }
 #endif
