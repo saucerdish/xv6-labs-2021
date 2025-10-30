@@ -132,6 +132,7 @@ found:
     release(&p->lock);
     return 0;
   }
+  p->usyscall_page->pid = p->pid;
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
   if(p->pagetable == 0){
@@ -139,7 +140,6 @@ found:
     release(&p->lock);
     return 0;
   }
-  p->usyscall_page->pid = p->pid;
 
   // Set up new context to start executing at forkret,
   // which returns to user space.
@@ -209,7 +209,6 @@ proc_pagetable(struct proc *p)
               (uint64)(p->usyscall_page), PTE_R | PTE_U) < 0){
     uvmunmap(pagetable, TRAMPOLINE, 1, 0);
     uvmunmap(pagetable, TRAPFRAME, 1, 0);
-    // uvmunmap(pagetable, USYSCALL, 1, 0);
     uvmfree(pagetable, 0);
     return 0;
   }
