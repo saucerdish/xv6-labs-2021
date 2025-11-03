@@ -70,9 +70,11 @@ usertrap(void)
     if(which_dev==2){
       if(p->alarmticks>0){
         p->tickcount++;
-        if(p->alarmticks==p->tickcount){
+        if(p->alarmticks==p->tickcount&&p->alarmactive==0){
           p->tickcount=0;
+          p->alarm_tf=p->trapframe;
           p->trapframe->epc=(uint64)(p->alarmhandler);
+          p->alarmactive=1;
         }
       }
     }

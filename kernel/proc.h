@@ -110,5 +110,5 @@ struct proc {
   int tickcount;            // 计数器（记录当前经过的 tick）
   void (*alarmhandler)();   // 用户处理函数指针
   int alarmactive;          // 标记是否启用闹钟
-
+  struct trapframe *alarm_tf;
 };
