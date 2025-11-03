@@ -123,6 +123,7 @@ found:
   p->alarmactive=0;
   p->tickcount=0;
   p->alarmhandler=0;
+  p->alarm_tf = 0;
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){

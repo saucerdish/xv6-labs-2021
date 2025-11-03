@@ -136,6 +136,7 @@ printfinit(void)
 void 
 backtrace(void)
 {
+  printf("backtrace:\n");
   uint64 fp=r_fp();
   uint64 bottom=PGROUNDDOWN(fp);
   uint64 up=PGROUNDDOWN(fp)+PGSIZE;
