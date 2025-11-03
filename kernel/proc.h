@@ -105,4 +105,10 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  int alarmticks;           // 闹钟周期（tick 数）
+  int tickcount;            // 计数器（记录当前经过的 tick）
+  void (*alarmhandler)();   // 用户处理函数指针
+  int alarmactive;          // 标记是否启用闹钟
+
 };
