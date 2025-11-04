@@ -65,6 +65,7 @@ void            kfree(void *);
 void            kinit(void);
 void            incref(uint64);
 int             getref(uint64);
+void            outcref(uint64);
 
 // log.c
 void            initlog(int, struct superblock*);

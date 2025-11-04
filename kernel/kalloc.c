@@ -46,8 +46,9 @@ freerange(void *pa_start, void *pa_end)
 {
   char *p;
   p = (char*)PGROUNDUP((uint64)pa_start);
-  for(; p + PGSIZE <= (char*)pa_end; p += PGSIZE)
+  for(; p + PGSIZE <= (char*)pa_end; p += PGSIZE){
     kfree(p);
+  }
 }
 
 // Free the page of physical memory pointed at by v,
@@ -64,13 +65,12 @@ kfree(void *pa)
   
   acquire(&ref_lock);
   int idx = pa2idx((uint64)pa);
-  if(refcount[idx] > 0)
-    refcount[idx]--;
-  int rc = refcount[idx];
+  refcount[idx]--;
+  if(refcount[idx] > 0){
+    release(&ref_lock);
+    return;
+  }
   release(&ref_lock);
-
-  if(rc > 0)
-    return; // 还有别的进程引用，不释放
 
   // Fill with junk to catch dangling refs.
   memset(pa, 1, PGSIZE);
@@ -112,6 +112,14 @@ incref(uint64 pa)
 {
   acquire(&ref_lock);
   refcount[pa2idx(pa)]++;
+  release(&ref_lock);
+}
+
+void
+outcref(uint64 pa)
+{
+  acquire(&ref_lock);
+  refcount[pa2idx(pa)]--;
   release(&ref_lock);
 }
 

@@ -178,10 +178,11 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
       panic("uvmunmap: not mapped");
     if(PTE_FLAGS(*pte) == PTE_V)
       panic("uvmunmap: not a leaf");
+    uint64 pa = PTE2PA(*pte);
     if(do_free){
-      uint64 pa = PTE2PA(*pte);
       kfree((void*)pa);
     }
+    // outcref(pa);
     *pte = 0;
   }
 }
@@ -300,10 +301,10 @@ uvmfree(pagetable_t pagetable, uint64 sz)
 int
 uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 {
+  // printf("uvmcopy\n");
   pte_t *pte;
   uint64 pa, i;
   uint flags;
-  // char *mem;
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
@@ -313,62 +314,50 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
 
-    if(flags & PTE_U){
-      flags &= (~PTE_W);
-      flags |= PTE_COW;
-      // 重新设置父页为只读
+    // clear PTE_W and mark the page as cow page.
+    if(flags & PTE_W){
+      flags = (flags | PTE_COW) & (~PTE_W);
       *pte = PA2PTE(pa) | flags;
-
-      if(mappages(new, i, PGSIZE, (uint64)pa, flags) != 0)
-        goto err;
-      
-      incref(pa);
     }
+
+    if(mappages(new, i, PGSIZE, (uint64)pa, flags) != 0){
+      // printf("uvmcopy map failed\n");
+      uvmunmap(new, 0, i / PGSIZE, 1);
+      return -1;
+    }
+    incref(pa);
+    // printf("copy new va:%p ;pa: %p\n",i,pa);
   }
   return 0;
-
- err:
-  uvmunmap(new, 0, i / PGSIZE, 1);
-  return -1;
 }
 
 uint64
 cowfault(pagetable_t pagetable, uint64 va)
 {
-  va = PGROUNDDOWN(va);
-  if(va >= MAXVA)
+  // printf("cowfault va:%p\n",va);
+  if(va >= MAXVA){
     return -1;
+  }
 
+  va = PGROUNDDOWN(va);
   pte_t *pte;
   if((pte = walk(pagetable, va, 0)) == 0)
     return -1;
-  if((*pte & PTE_V) == 0)
-    return -1;
-  if((*pte & PTE_COW)==0){
-    return -1;
-  }
 
-  char *mem;
   uint64 pa = PTE2PA(*pte);
-  uint flags = PTE_FLAGS(*pte);
+  if (pa == 0) return -1;
 
-  // 如果该页被多个进程共享，则复制
-  if(getref(pa) > 1){
-    if((mem = kalloc()) == 0)
-      return -1;
-    memmove(mem, (char*)pa, PGSIZE);
-    
-    *pte = 0;
-    if(mappages(pagetable, va, PGSIZE, (uint64)mem, (flags | PTE_W) & ~PTE_COW) != 0){
-      kfree(mem);
-      return -1;
-    }
-    // 原页引用计数 -1
+  uint flags = PTE_FLAGS(*pte);
+  if (flags & PTE_COW){  
+    flags = (flags & ~PTE_COW) | PTE_W;
+    char *ka = kalloc();
+    if (ka == 0) return -1;
+    memmove(ka, (char*)pa, PGSIZE);
     kfree((void*)pa);
-  } else {
-    // 若只有一个引用，可直接恢复写权限
-    *pte = (*pte | PTE_W) & ~PTE_COW;
+    *pte = PA2PTE((uint64)ka) | flags;
+    return 0;
   }
+  
   return 0;
 }
 
@@ -391,20 +380,14 @@ uvmclear(pagetable_t pagetable, uint64 va)
 int
 copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 {
+  // printf("copyout\n");
   uint64 n, va0, pa0;
-  pte_t *pte;
 
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);
 
-    if((pte = walk(pagetable, va0, 0)) == 0)
+    if(cowfault(pagetable, va0)!=0)
       return -1;
-    if((*pte & PTE_V) == 0)
-      return -1;
-    if((*pte & PTE_W) == 0 && (*pte & PTE_COW)){
-      if(cowfault(pagetable, va0) < 0)
-        return -1;
-    }
 
     pa0 = walkaddr(pagetable, va0);
     if(pa0 == 0)
