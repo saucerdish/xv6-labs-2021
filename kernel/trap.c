@@ -67,7 +67,14 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else {
+  } else if(r_scause()==15){
+    uint64 va = r_stval();  // 获取 fault 地址
+    if(cowfault(p->pagetable, va) < 0){
+      printf("COW: failed, killing process\n");
+      kill(p->pid);
+    }
+
+  }else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;

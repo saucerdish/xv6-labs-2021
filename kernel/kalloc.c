@@ -14,6 +14,10 @@ void freerange(void *pa_start, void *pa_end);
 extern char end[]; // first address after kernel.
                    // defined by kernel.ld.
 
+#define MAX_PAGES (PHYSTOP / PGSIZE)
+int refcount[MAX_PAGES]; 
+struct spinlock ref_lock;
+
 struct run {
   struct run *next;
 };
@@ -23,10 +27,17 @@ struct {
   struct run *freelist;
 } kmem;
 
+static inline int
+pa2idx(uint64 pa)
+{
+  return pa / PGSIZE;
+}
+
 void
 kinit()
 {
   initlock(&kmem.lock, "kmem");
+  initlock(&ref_lock, "ref_lock"); 
   freerange(end, (void*)PHYSTOP);
 }
 
@@ -50,6 +61,16 @@ kfree(void *pa)
 
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
+  
+  acquire(&ref_lock);
+  int idx = pa2idx((uint64)pa);
+  if(refcount[idx] > 0)
+    refcount[idx]--;
+  int rc = refcount[idx];
+  release(&ref_lock);
+
+  if(rc > 0)
+    return; // 还有别的进程引用，不释放
 
   // Fill with junk to catch dangling refs.
   memset(pa, 1, PGSIZE);
@@ -76,7 +97,29 @@ kalloc(void)
     kmem.freelist = r->next;
   release(&kmem.lock);
 
-  if(r)
+  if(r){
     memset((char*)r, 5, PGSIZE); // fill with junk
+    acquire(&ref_lock);
+    refcount[pa2idx((uint64)r)] = 1;  // 初始化引用计数为 1
+    release(&ref_lock);
+  }
+
   return (void*)r;
+}
+
+void
+incref(uint64 pa)
+{
+  acquire(&ref_lock);
+  refcount[pa2idx(pa)]++;
+  release(&ref_lock);
+}
+
+int
+getref(uint64 pa)
+{
+  acquire(&ref_lock);
+  int rc = refcount[pa2idx(pa)];
+  release(&ref_lock);
+  return rc;
 }
