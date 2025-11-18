@@ -22,6 +22,8 @@
 #include "defs.h"
 #include "fs.h"
 #include "buf.h"
+ 
+// https://zhuanlan.zhihu.com/p/1895507803373814529
 
 // struct {
 //   struct spinlock lock;
