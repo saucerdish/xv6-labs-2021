@@ -283,6 +283,8 @@ create(char *path, short type, short major, short minor)
   return ip;
 }
 
+//https://zhuanlan.zhihu.com/p/341738666
+//add new function
 struct inode* getip(char *path,uint depth ,int omode)
 {
     // reached the max symbolic recursive depth
@@ -521,6 +523,8 @@ sys_pipe(void)
   return 0;
 }
 
+
+//https://zhuanlan.zhihu.com/p/341738666
 uint64 sys_symlink(void)
 {
   char name[DIRSIZ],target[MAXPATH],path[MAXPATH];
